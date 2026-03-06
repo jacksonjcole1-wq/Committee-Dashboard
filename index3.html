@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CDU N-1 Committee Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1117; --surface: #181c27; --surface2: #1f2436; --border: #2a3050;
+    --text: #e8eaf2; --muted: #7880a0; --accent: #c8f060; --accent2: #60c8f0;
+    --warn: #f0c060; --danger: #f06080; --green: #60f0a8;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; font-size: 13px; min-height: 100vh; padding: 32px; }
+
+  .header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 28px; border-bottom: 1px solid var(--border); padding-bottom: 20px; }
+  .header-left h1 { font-family: 'Fraunces', serif; font-weight: 300; font-size: 32px; letter-spacing: -0.5px; line-height: 1; }
+  .header-left h1 span { color: var(--accent); font-style: italic; }
+  .header-left p { color: var(--muted); margin-top: 6px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .cycle-badge { background: var(--surface2); border: 1px solid var(--border); padding: 6px 14px; font-size: 11px; letter-spacing: 0.08em; color: var(--accent); text-transform: uppercase; }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); padding: 16px 18px; position: relative; overflow: hidden; transition: border-color 0.2s; }
+  .stat-card:hover { border-color: var(--accent); }
+  .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+  .stat-card.all::before { background: var(--accent2); }
+  .stat-card.uplifted::before { background: var(--green); }
+  .stat-card.office::before { background: var(--accent); }
+  .stat-card.land::before { background: var(--warn); }
+  .stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 8px; }
+  .stat-value { font-family: 'Fraunces', serif; font-size: 36px; font-weight: 300; line-height: 1; }
+  .stat-card.all .stat-value { color: var(--accent2); }
+  .stat-card.uplifted .stat-value { color: var(--green); }
+  .stat-card.office .stat-value { color: var(--accent); }
+  .stat-card.land .stat-value { color: var(--warn); }
+
+  .filters { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+  .filter-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; margin-right: 4px; }
+  .filter-btn { background: var(--surface); border: 1px solid var(--border); color: var(--muted); padding: 5px 12px; font-family: 'DM Mono', monospace; font-size: 11px; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; transition: all 0.15s; }
+  .filter-btn:hover, .filter-btn.active { background: var(--surface2); border-color: var(--accent); color: var(--accent); }
+
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { background: var(--surface2); padding: 12px 16px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; cursor: pointer; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+  td { padding: 12px 16px; vertical-align: middle; }
+  .doc-name { font-size: 12px; color: var(--text); font-weight: 500; }
+  .doc-category { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .status-pill { display: inline-block; padding: 3px 10px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 500; border: 1px solid; white-space: nowrap; }
+  .status-pill.uplifted { color: var(--green); border-color: var(--green); background: rgba(96,240,168,0.08); }
+  .status-pill.review { color: var(--accent); border-color: var(--accent); background: rgba(200,240,96,0.08); }
+  .status-pill.pending { color: var(--warn); border-color: var(--warn); background: rgba(240,192,96,0.08); }
+  .status-pill.overdue { color: var(--danger); border-color: var(--danger); background: rgba(240,96,128,0.08); }
+  .status-pill.draft { color: var(--muted); border-color: var(--muted); background: rgba(120,128,160,0.08); }
+  .owner-name { font-size: 12px; color: var(--text); }
+  .meeting-date { font-size: 12px; color: var(--accent2); }
+  .stakeholder-count { font-size: 12px; color: var(--text); }
+
+  .detail-panel { display: none; background: var(--surface2); border: 1px solid var(--accent); padding: 24px; margin-top: 16px; position: relative; animation: slideDown 0.2s ease; }
+  @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+  .detail-panel.open { display: block; }
+  .detail-close { position: absolute; top: 16px; right: 16px; background: none; border: 1px solid var(--border); color: var(--muted); width: 28px; height: 28px; cursor: pointer; font-family: 'DM Mono', monospace; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .detail-close:hover { border-color: var(--danger); color: var(--danger); }
+  .detail-title { font-family: 'Fraunces', serif; font-size: 18px; font-weight: 300; margin-bottom: 20px; line-height: 1.3; }
+  .detail-section h4 { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  .info-list { list-style: none; }
+  .info-list li { font-size: 11px; color: var(--text); padding: 5px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
+  .info-list li:last-child { border-bottom: none; }
+  .info-list .val { color: var(--muted); font-size: 11px; }
+
+  .footer { margin-top: 24px; display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateX(-4px); } to { opacity: 1; transform: translateX(0); } }
+  tbody tr { animation: fadeIn 0.3s ease both; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>CDU <span>N-1</span> Committee</h1>
+    <p>Document Pipeline Dashboard — March 2026 Cycle</p>
+  </div>
+  <div class="cycle-badge">March N-1 Active</div>
+</div>
+
+<div class="stats">
+  <div class="stat-card all"><div class="stat-label">Total Documents</div><div class="stat-value" id="stat-total">0</div></div>
+  <div class="stat-card uplifted"><div class="stat-label">Uplifted</div><div class="stat-value" id="stat-uplifted">0</div></div>
+  <div class="stat-card office"><div class="stat-label">Office Leasing</div><div class="stat-value" id="stat-office">0</div></div>
+  <div class="stat-card land"><div class="stat-label">Land Docs</div><div class="stat-value" id="stat-land">0</div></div>
+</div>
+
+<div class="filters">
+  <span class="filter-label">Filter:</span>
+  <button class="filter-btn active" onclick="filterDocs('all', this)">All</button>
+  <button class="filter-btn" onclick="filterDocs('Office Leasing', this)">Office Leasing</button>
+  <button class="filter-btn" onclick="filterDocs('Land Sales', this)">Land Sales</button>
+  <button class="filter-btn" onclick="filterDocs('Land Leasing', this)">Land Leasing</button>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Document</th>
+        <th>Status</th>
+        <th>Owner</th>
+        <th>Committee Date</th>
+        <th>Stakeholders</th>
+      </tr>
+    </thead>
+    <tbody id="doc-table"></tbody>
+  </table>
+</div>
+
+<div class="detail-panel" id="detail-panel">
+  <button class="detail-close" onclick="closeDetail()">✕</button>
+  <div class="detail-title" id="detail-title"></div>
+  <div class="detail-section"><h4>Document Info</h4><ul class="info-list" id="detail-info"></ul></div>
+</div>
+
+<div class="footer">
+  <span>Last updated: 6 March 2026</span>
+  <span>Click any row to view details</span>
+</div>
+
+<script>
+const documents = [
+  { id: 1,  name: "1.1. Qiddiya - Office Leasing - Annual Leasing Strategy", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Office Leasing" },
+  { id: 2,  name: "1.2. Qiddiya - Office Leasing - Project Leasing Strategy", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Office Leasing" },
+  { id: 3,  name: "2.1. Qiddiya - Office Leasing - Partner Management - Strategy", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Office Leasing" },
+  { id: 4,  name: "2.2. Qiddiya - Office Leasing - Partner Management - Onboarding", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Office Leasing" },
+  { id: 5,  name: "2.3. Qiddiya - Office Leasing - Performance Management", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Office Leasing" },
+  { id: 6,  name: "3. Qiddiya - Office Leasing - Lead to Deal including Governance", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Office Leasing" },
+  { id: 7,  name: "4. Qiddiya - Office Leasing - Handover and Post Leasing Administration", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Office Leasing" },
+  { id: 8,  name: "5. Qiddiya - Office Leasing - Renewals", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Office Leasing" },
+  { id: 9,  name: "1.1. Qiddiya - Land Sales - Annual Sales Strategy", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Sales" },
+  { id: 10, name: "1.2. Qiddiya - Land Sales - Project Sales Strategy", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Sales" },
+  { id: 11, name: "2.1. Qiddiya - Land Sales - Partner Management - Strategy", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Sales" },
+  { id: 12, name: "2.2. Qiddiya - Land Sales - Partner Management - Onboarding", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Sales" },
+  { id: 13, name: "2.3. Qiddiya - Land Sales - Partner Management - Performance Management", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Sales" },
+  { id: 14, name: "3. Qiddiya - Land Sales - Lead to Deal including Governance", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Sales" },
+  { id: 15, name: "5. Qiddiya - Land Sales - Handover and Post Sales Administration", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Sales" },
+  { id: 16, name: "1.1. Qiddiya - Land Leasing - Annual Leasing Strategy", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Leasing" },
+  { id: 17, name: "1.2. Qiddiya - Land Leasing - Project Leasing Strategy", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Leasing" },
+  { id: 18, name: "2.1. Qiddiya - Land Leasing - Partner Management - Strategy", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Leasing" },
+  { id: 19, name: "2.2. Qiddiya - Land Leasing - Partner Management - Onboarding", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Leasing" },
+  { id: 20, name: "2.3. Qiddiya - Land Leasing - Partner Management - Performance Management", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Leasing" },
+  { id: 21, name: "3. Qiddiya - Land Leasing - Lead to Deal including Governance", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Leasing" },
+  { id: 22, name: "5. Qiddiya - Land Leasing - Handover and Post Leasing Administration", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Leasing" },
+  { id: 23, name: "6. Qiddiya - Land Leasing - Renewals", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Leasing" },
+];
+
+function statusClass(s) {
+  if (s.toLowerCase().includes('uplift')) return 'uplifted';
+  if (s.toLowerCase().includes('review')) return 'review';
+  if (s.toLowerCase().includes('pending')) return 'pending';
+  if (s.toLowerCase().includes('overdue')) return 'overdue';
+  return 'draft';
+}
+
+function updateStats() {
+  document.getElementById('stat-total').textContent = documents.length;
+  document.getElementById('stat-uplifted').textContent = documents.filter(d => d.status.toLowerCase().includes('uplift')).length;
+  document.getElementById('stat-office').textContent = documents.filter(d => d.category === 'Office Leasing').length;
+  document.getElementById('stat-land').textContent = documents.filter(d => d.category.startsWith('Land')).length;
+}
+
+function renderTable(filter) {
+  const tbody = document.getElementById('doc-table');
+  const filtered = (!filter || filter === 'all') ? documents : documents.filter(d => d.category === filter);
+  tbody.innerHTML = filtered.map((doc, i) => {
+    const sc = statusClass(doc.status);
+    return `<tr onclick="openDetail(${doc.id})" style="animation-delay:${i*0.03}s">
+      <td><div class="doc-name">${doc.name}</div><div class="doc-category">${doc.category}</div></td>
+      <td><span class="status-pill ${sc}">${doc.status}</span></td>
+      <td><div class="owner-name">${doc.owner}</div></td>
+      <td><div class="meeting-date">${doc.meetingDate}</div></td>
+      <td><div class="stakeholder-count">${doc.stakeholders} consulted</div></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterDocs(filter, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  closeDetail();
+  renderTable(filter);
+}
+
+function openDetail(id) {
+  const doc = documents.find(d => d.id === id);
+  if (!doc) return;
+  document.getElementById('detail-title').textContent = doc.name;
+  document.getElementById('detail-info').innerHTML = `
+    <li><span>Category</span><span class="val">${doc.category}</span></li>
+    <li><span>Status</span><span class="val">${doc.status}</span></li>
+    <li><span>Owner</span><span class="val">${doc.owner}</span></li>
+    <li><span>Meeting Date</span><span class="val">${doc.meetingDate}</span></li>
+    <li><span>Stakeholders Consulted</span><span class="val">${doc.stakeholders}</span></li>
+  `;
+  const panel = document.getElementById('detail-panel');
+  panel.classList.add('open');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeDetail() {
+  document.getElementById('detail-panel').classList.remove('open');
+}
+
+updateStats();
+renderTable('all');
+</script>
+</body>
+</html>
