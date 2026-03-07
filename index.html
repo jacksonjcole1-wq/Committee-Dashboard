@@ -1,167 +1,286 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CDU N-1 Committee Dashboard</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --bg: #0f1117; --surface: #181c27; --surface2: #1f2436; --border: #2a3050;
-    --text: #e8eaf2; --muted: #7880a0; --accent: #c8f060; --accent2: #60c8f0;
-    --warn: #f0c060; --danger: #f06080; --green: #60f0a8;
+    --bg: #f4f5f7; --surface: #ffffff; --surface2: #f0f1f4; --border: #dde0e8;
+    --border-strong: #c2c7d4; --text: #1a1e2e; --text-secondary: #4a5068;
+    --muted: #8a90a8; --accent: #1e3a5f; --accent-light: #2d5491;
+    --gold: #b8975a; --green: #2d6a4f; --green-bg: #eaf4ef;
+    --amber: #7a5c1e; --amber-bg: #fdf3e3;
+    --blue: #1e3a5f; --blue-bg: #e8eef6;
+    --grey: #4a5068; --grey-bg: #f0f1f4;
+    --red: #8b2635; --red-bg: #faeaec;
   }
-  body { background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; font-size: 13px; min-height: 100vh; padding: 32px; }
+  body { background: var(--bg); color: var(--text); font-family: 'Lato', sans-serif; font-size: 13px; min-height: 100vh; }
+  .topbar { height: 4px; background: linear-gradient(90deg, var(--accent) 0%, var(--gold) 100%); }
 
-  .header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 28px; border-bottom: 1px solid var(--border); padding-bottom: 20px; }
-  .header-left h1 { font-family: 'Fraunces', serif; font-weight: 300; font-size: 32px; letter-spacing: -0.5px; line-height: 1; }
-  .header-left h1 span { color: var(--accent); font-style: italic; }
-  .header-left p { color: var(--muted); margin-top: 6px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; }
-  .cycle-badge { background: var(--surface2); border: 1px solid var(--border); padding: 6px 14px; font-size: 11px; letter-spacing: 0.08em; color: var(--accent); text-transform: uppercase; }
+  .login-overlay { position: fixed; inset: 0; background: rgba(15,20,35,0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
+  .login-overlay.hidden { display: none; }
+  .login-box { background: var(--surface); border-top: 4px solid var(--gold); padding: 40px; width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+  .login-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
+  .login-title { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--accent); margin-bottom: 6px; }
+  .login-sub { font-size: 12px; color: var(--muted); font-weight: 300; margin-bottom: 28px; }
+  .login-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 6px; display: block; }
+  .login-input { width: 100%; padding: 10px 14px; border: 1px solid var(--border); font-family: 'Lato', sans-serif; font-size: 13px; color: var(--text); background: var(--bg); outline: none; margin-bottom: 16px; transition: border-color 0.15s; }
+  .login-input:focus { border-color: var(--accent); }
+  .login-btn { width: 100%; padding: 11px; background: var(--accent); color: #fff; border: none; font-family: 'Lato', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: background 0.15s; }
+  .login-btn:hover { background: var(--accent-light); }
+  .login-error { color: var(--red); font-size: 11px; margin-top: 10px; display: none; }
 
-  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
-  .stat-card { background: var(--surface); border: 1px solid var(--border); padding: 16px 18px; position: relative; overflow: hidden; transition: border-color 0.2s; }
-  .stat-card:hover { border-color: var(--accent); }
-  .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
-  .stat-card.all::before { background: var(--accent2); }
-  .stat-card.uplifted::before { background: var(--green); }
-  .stat-card.office::before { background: var(--accent); }
-  .stat-card.land::before { background: var(--warn); }
-  .stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 8px; }
-  .stat-value { font-family: 'Fraunces', serif; font-size: 36px; font-weight: 300; line-height: 1; }
-  .stat-card.all .stat-value { color: var(--accent2); }
+  .container { max-width: 1400px; margin: 0 auto; padding: 36px 40px; }
+  .header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+  .header-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
+  .header-left h1 { font-family: 'Playfair Display', serif; font-weight: 500; font-size: 30px; color: var(--accent); letter-spacing: -0.3px; line-height: 1.1; }
+  .header-left p { color: var(--muted); margin-top: 5px; font-size: 12px; font-weight: 300; }
+  .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .cycle-badge { background: var(--accent); color: #fff; padding: 7px 18px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+  .header-date { font-size: 11px; color: var(--muted); font-weight: 300; }
+  .logout-btn { font-size: 11px; color: var(--muted); background: none; border: 1px solid var(--border); padding: 4px 10px; cursor: pointer; font-family: 'Lato', sans-serif; transition: all 0.15s; }
+  .logout-btn:hover { border-color: var(--red); color: var(--red); }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); padding: 20px 22px; position: relative; overflow: hidden; transition: box-shadow 0.2s, transform 0.2s; }
+  .stat-card:hover { box-shadow: 0 4px 20px rgba(30,58,95,0.08); transform: translateY(-1px); }
+  .stat-card::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; }
+  .stat-card.all::after { background: var(--accent); }
+  .stat-card.uplifted::after { background: var(--green); }
+  .stat-card.office::after { background: var(--gold); }
+  .stat-card.land::after { background: var(--grey); }
+  .stat-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); margin-bottom: 10px; }
+  .stat-value { font-family: 'Playfair Display', serif; font-size: 40px; font-weight: 400; line-height: 1; }
+  .stat-card.all .stat-value { color: var(--accent); }
   .stat-card.uplifted .stat-value { color: var(--green); }
-  .stat-card.office .stat-value { color: var(--accent); }
-  .stat-card.land .stat-value { color: var(--warn); }
+  .stat-card.office .stat-value { color: var(--gold); }
+  .stat-card.land .stat-value { color: var(--grey); }
+  .stat-sub { font-size: 11px; color: var(--muted); margin-top: 4px; font-weight: 300; }
 
-  .filters { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
-  .filter-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; margin-right: 4px; }
-  .filter-btn { background: var(--surface); border: 1px solid var(--border); color: var(--muted); padding: 5px 12px; font-family: 'DM Mono', monospace; font-size: 11px; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; transition: all 0.15s; }
-  .filter-btn:hover, .filter-btn.active { background: var(--surface2); border-color: var(--accent); color: var(--accent); }
+  .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .filters { display: flex; gap: 6px; align-items: center; }
+  .filter-label { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-right: 6px; }
+  .filter-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-secondary); padding: 6px 14px; font-family: 'Lato', sans-serif; font-size: 11px; font-weight: 700; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; transition: all 0.15s; }
+  .filter-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--blue-bg); }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .doc-count { font-size: 11px; color: var(--muted); font-weight: 300; }
 
-  .table-wrap { background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
+  .edit-hint { font-size: 11px; color: var(--amber); font-weight: 400; margin-bottom: 14px; padding: 8px 14px; background: var(--amber-bg); border: 1px solid #e8d9b8; display: inline-block; }
+
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); box-shadow: 0 2px 12px rgba(30,58,95,0.06); overflow: hidden; }
   table { width: 100%; border-collapse: collapse; }
-  thead th { background: var(--surface2); padding: 12px 16px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); border-bottom: 1px solid var(--border); white-space: nowrap; }
-  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; cursor: pointer; }
+  thead th { background: var(--accent); color: rgba(255,255,255,0.85); padding: 13px 18px; text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; white-space: nowrap; border-right: 1px solid rgba(255,255,255,0.08); }
+  thead th:last-child { border-right: none; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.12s; }
   tbody tr:last-child { border-bottom: none; }
-  tbody tr:hover { background: var(--surface2); }
-  td { padding: 12px 16px; vertical-align: middle; }
-  .doc-name { font-size: 12px; color: var(--text); font-weight: 500; }
-  .doc-category { font-size: 10px; color: var(--muted); margin-top: 2px; }
-  .status-pill { display: inline-block; padding: 3px 10px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 500; border: 1px solid; white-space: nowrap; }
-  .status-pill.uplifted { color: var(--green); border-color: var(--green); background: rgba(96,240,168,0.08); }
-  .status-pill.review { color: var(--accent); border-color: var(--accent); background: rgba(200,240,96,0.08); }
-  .status-pill.pending { color: var(--warn); border-color: var(--warn); background: rgba(240,192,96,0.08); }
-  .status-pill.overdue { color: var(--danger); border-color: var(--danger); background: rgba(240,96,128,0.08); }
-  .status-pill.draft { color: var(--muted); border-color: var(--muted); background: rgba(120,128,160,0.08); }
+  tbody tr:nth-child(even) { background: #fafbfc; }
+  tbody tr:hover { background: var(--blue-bg); }
+  td { padding: 13px 18px; vertical-align: middle; border-right: 1px solid var(--border); }
+  td:last-child { border-right: none; }
+  .doc-name { font-size: 12px; color: var(--text); font-weight: 700; margin-bottom: 2px; line-height: 1.4; }
+  .doc-category { font-size: 10px; color: var(--muted); }
+  .ref-number { font-size: 11px; color: var(--accent-light); }
+
+  .status-pill { display: inline-block; padding: 4px 10px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; border: 1px solid; white-space: nowrap; cursor: pointer; transition: opacity 0.15s; }
+  .status-pill:hover { opacity: 0.75; }
+  .status-pill.uplifted { color: var(--green); border-color: var(--green); background: var(--green-bg); }
+  .status-pill.review { color: var(--blue); border-color: var(--blue); background: var(--blue-bg); }
+  .status-pill.pending { color: var(--amber); border-color: var(--amber); background: var(--amber-bg); }
+  .status-pill.overdue { color: var(--red); border-color: var(--red); background: var(--red-bg); }
+  .status-pill.approved { color: var(--green); border-color: var(--green); background: var(--green-bg); }
+  .status-pill.draft { color: var(--grey); border-color: var(--border-strong); background: var(--grey-bg); }
+
+  .editable-cell { cursor: pointer; padding: 2px 6px; margin: -2px -6px; transition: background 0.15s; border-radius: 2px; }
+  .editable-cell:hover { background: #fff3d4; outline: 1px dashed var(--gold); }
+
   .owner-name { font-size: 12px; color: var(--text); }
-  .meeting-date { font-size: 12px; color: var(--accent2); }
-  .stakeholder-count { font-size: 12px; color: var(--text); }
+  .meeting-date { font-size: 12px; color: var(--accent); font-weight: 700; }
 
-  .detail-panel { display: none; background: var(--surface2); border: 1px solid var(--accent); padding: 24px; margin-top: 16px; position: relative; animation: slideDown 0.2s ease; }
-  @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
-  .detail-panel.open { display: block; }
-  .detail-close { position: absolute; top: 16px; right: 16px; background: none; border: 1px solid var(--border); color: var(--muted); width: 28px; height: 28px; cursor: pointer; font-family: 'DM Mono', monospace; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
-  .detail-close:hover { border-color: var(--danger); color: var(--danger); }
-  .detail-title { font-family: 'Fraunces', serif; font-size: 18px; font-weight: 300; margin-bottom: 20px; line-height: 1.3; }
-  .detail-section h4 { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
-  .info-list { list-style: none; }
-  .info-list li { font-size: 11px; color: var(--text); padding: 5px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
-  .info-list li:last-child { border-bottom: none; }
-  .info-list .val { color: var(--muted); font-size: 11px; }
+  .status-dropdown { position: fixed; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 500; min-width: 240px; border-top: 3px solid var(--gold); }
+  .status-dropdown.hidden { display: none; }
+  .status-dropdown-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); padding: 10px 14px 8px; border-bottom: 1px solid var(--border); }
+  .status-option { padding: 9px 14px; cursor: pointer; font-size: 12px; color: var(--text); transition: background 0.1s; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); }
+  .status-option:last-child { border-bottom: none; }
+  .status-option:hover { background: var(--blue-bg); }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
-  .footer { margin-top: 24px; display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; }
-  @keyframes fadeIn { from { opacity: 0; transform: translateX(-4px); } to { opacity: 1; transform: translateX(0); } }
-  tbody tr { animation: fadeIn 0.3s ease both; }
+  .inline-editor { position: fixed; background: var(--surface); border: 1px solid var(--accent); box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 500; padding: 16px; min-width: 300px; border-top: 3px solid var(--gold); }
+  .inline-editor.hidden { display: none; }
+  .inline-editor-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 8px; }
+  .inline-editor-input { width: 100%; padding: 8px 10px; border: 1px solid var(--border); font-family: 'Lato', sans-serif; font-size: 12px; color: var(--text); outline: none; margin-bottom: 10px; }
+  .inline-editor-input:focus { border-color: var(--accent); }
+  .inline-editor-actions { display: flex; gap: 6px; }
+  .btn-save { background: var(--accent); color: #fff; border: none; padding: 7px 18px; font-family: 'Lato', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; }
+  .btn-cancel { background: none; color: var(--muted); border: 1px solid var(--border); padding: 7px 14px; font-family: 'Lato', sans-serif; font-size: 11px; cursor: pointer; }
+
+  .loading { text-align: center; padding: 48px; color: var(--muted); font-size: 12px; letter-spacing: 0.06em; }
+  .save-toast { position: fixed; bottom: 24px; right: 24px; background: var(--accent); color: #fff; padding: 10px 20px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; z-index: 999; transform: translateY(60px); opacity: 0; transition: all 0.3s; }
+  .save-toast.show { transform: translateY(0); opacity: 1; }
+
+  .footer { margin-top: 24px; display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 11px; font-weight: 300; padding-top: 16px; border-top: 1px solid var(--border); }
+  .footer-brand { font-family: 'Playfair Display', serif; font-size: 12px; color: var(--accent); font-weight: 500; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  tbody tr { animation: fadeIn 0.25s ease both; }
 </style>
 </head>
 <body>
 
-<div class="header">
-  <div class="header-left">
-    <h1>CDU <span>N-1</span> Committee</h1>
-    <p>Document Pipeline Dashboard — March 2026 Cycle</p>
+<div class="topbar"></div>
+
+<!-- Login -->
+<div class="login-overlay" id="login-overlay">
+  <div class="login-box">
+    <div class="login-eyebrow">Qiddiya Investment Company</div>
+    <div class="login-title">CDU N-1 Dashboard</div>
+    <div class="login-sub">Enter your password to access the dashboard</div>
+    <label class="login-label" for="password-input">Password</label>
+    <input class="login-input" type="password" id="password-input" placeholder="Enter password" onkeydown="if(event.key==='Enter') attemptLogin()">
+    <button class="login-btn" onclick="attemptLogin()">Access Dashboard</button>
+    <div class="login-error" id="login-error">Incorrect password. Please try again.</div>
   </div>
-  <div class="cycle-badge">March N-1 Active</div>
 </div>
 
-<div class="stats">
-  <div class="stat-card all"><div class="stat-label">Total Documents</div><div class="stat-value" id="stat-total">0</div></div>
-  <div class="stat-card uplifted"><div class="stat-label">Uplifted</div><div class="stat-value" id="stat-uplifted">0</div></div>
-  <div class="stat-card office"><div class="stat-label">Office Leasing</div><div class="stat-value" id="stat-office">0</div></div>
-  <div class="stat-card land"><div class="stat-label">Land Docs</div><div class="stat-value" id="stat-land">0</div></div>
+<!-- Dashboard -->
+<div class="container" id="main-dashboard" style="display:none">
+  <div class="header">
+    <div class="header-left">
+      <div class="header-eyebrow">Qiddiya Investment Company</div>
+      <h1>CDU N-1 Committee Dashboard</h1>
+      <p>Document Pipeline — March 2026 Cycle</p>
+    </div>
+    <div class="header-right">
+      <div class="cycle-badge">March N-1 Active</div>
+      <div class="header-date">Committee Date: 18 March 2026</div>
+      <button class="logout-btn" onclick="logout()">Log out</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card all"><div class="stat-label">Total Documents</div><div class="stat-value" id="stat-total">—</div><div class="stat-sub">Submitted for review</div></div>
+    <div class="stat-card uplifted"><div class="stat-label">Uplifted</div><div class="stat-value" id="stat-uplifted">—</div><div class="stat-sub">Latest template applied</div></div>
+    <div class="stat-card office"><div class="stat-label">Office Leasing</div><div class="stat-value" id="stat-office">—</div><div class="stat-sub">Documents in cycle</div></div>
+    <div class="stat-card land"><div class="stat-label">Land Docs</div><div class="stat-value" id="stat-land">—</div><div class="stat-sub">Sales &amp; Leasing combined</div></div>
+  </div>
+
+  <div class="toolbar">
+    <div class="filters">
+      <span class="filter-label">Filter:</span>
+      <button class="filter-btn active" onclick="filterDocs('all', this)">All</button>
+      <button class="filter-btn" onclick="filterDocs('Office Leasing', this)">Office Leasing</button>
+      <button class="filter-btn" onclick="filterDocs('Land Sales', this)">Land Sales</button>
+      <button class="filter-btn" onclick="filterDocs('Land Leasing', this)">Land Leasing</button>
+    </div>
+    <div class="doc-count" id="doc-count"></div>
+  </div>
+
+  <div class="edit-hint">✎ &nbsp;Click any status, owner, or date to edit it directly — changes save instantly</div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Document</th>
+          <th>Document Reference Number</th>
+          <th>Status</th>
+          <th>Owner</th>
+          <th>Committee Date</th>
+        </tr>
+      </thead>
+      <tbody id="doc-table"><tr><td colspan="5"><div class="loading">Loading documents...</div></td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    <div class="footer-brand">CDU N-1 Committee</div>
+    <div id="footer-updated">—</div>
+  </div>
 </div>
 
-<div class="filters">
-  <span class="filter-label">Filter:</span>
-  <button class="filter-btn active" onclick="filterDocs('all', this)">All</button>
-  <button class="filter-btn" onclick="filterDocs('Office Leasing', this)">Office Leasing</button>
-  <button class="filter-btn" onclick="filterDocs('Land Sales', this)">Land Sales</button>
-  <button class="filter-btn" onclick="filterDocs('Land Leasing', this)">Land Leasing</button>
+<!-- Status Dropdown -->
+<div class="status-dropdown hidden" id="status-dropdown">
+  <div class="status-dropdown-title">Change Status</div>
+  <div class="status-option" onclick="selectStatus('Uplifted into latest template')"><span class="status-dot" style="background:#2d6a4f"></span>Uplifted into latest template</div>
+  <div class="status-option" onclick="selectStatus('In Review')"><span class="status-dot" style="background:#1e3a5f"></span>In Review</div>
+  <div class="status-option" onclick="selectStatus('Pending')"><span class="status-dot" style="background:#b8975a"></span>Pending</div>
+  <div class="status-option" onclick="selectStatus('Approved')"><span class="status-dot" style="background:#2d6a4f"></span>Approved</div>
+  <div class="status-option" onclick="selectStatus('Overdue')"><span class="status-dot" style="background:#8b2635"></span>Overdue</div>
+  <div class="status-option" onclick="selectStatus('Draft')"><span class="status-dot" style="background:#4a5068"></span>Draft</div>
 </div>
 
-<div class="table-wrap">
-  <table>
-    <thead>
-      <tr>
-        <th>Document</th>
-        <th>Status</th>
-        <th>Owner</th>
-        <th>Committee Date</th>
-        <th>Stakeholders</th>
-      </tr>
-    </thead>
-    <tbody id="doc-table"></tbody>
-  </table>
+<!-- Inline Editor -->
+<div class="inline-editor hidden" id="inline-editor">
+  <div class="inline-editor-label" id="editor-label">Edit field</div>
+  <input class="inline-editor-input" id="editor-input" type="text"
+    onkeydown="if(event.key==='Enter') saveInlineEdit(); if(event.key==='Escape') closeInlineEditor();">
+  <div class="inline-editor-actions">
+    <button class="btn-save" onclick="saveInlineEdit()">Save</button>
+    <button class="btn-cancel" onclick="closeInlineEditor()">Cancel</button>
+  </div>
 </div>
 
-<div class="detail-panel" id="detail-panel">
-  <button class="detail-close" onclick="closeDetail()">✕</button>
-  <div class="detail-title" id="detail-title"></div>
-  <div class="detail-section"><h4>Document Info</h4><ul class="info-list" id="detail-info"></ul></div>
-</div>
-
-<div class="footer">
-  <span>Last updated: 6 March 2026</span>
-  <span>Click any row to view details</span>
-</div>
+<!-- Toast -->
+<div class="save-toast" id="save-toast">✓ Saved successfully</div>
 
 <script>
-const documents = [
-  { id: 1,  name: "1.1. Qiddiya - Office Leasing - Annual Leasing Strategy", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Office Leasing" },
-  { id: 2,  name: "1.2. Qiddiya - Office Leasing - Project Leasing Strategy", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Office Leasing" },
-  { id: 3,  name: "2.1. Qiddiya - Office Leasing - Partner Management - Strategy", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Office Leasing" },
-  { id: 4,  name: "2.2. Qiddiya - Office Leasing - Partner Management - Onboarding", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Office Leasing" },
-  { id: 5,  name: "2.3. Qiddiya - Office Leasing - Performance Management", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Office Leasing" },
-  { id: 6,  name: "3. Qiddiya - Office Leasing - Lead to Deal including Governance", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Office Leasing" },
-  { id: 7,  name: "4. Qiddiya - Office Leasing - Handover and Post Leasing Administration", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Office Leasing" },
-  { id: 8,  name: "5. Qiddiya - Office Leasing - Renewals", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Office Leasing" },
-  { id: 9,  name: "1.1. Qiddiya - Land Sales - Annual Sales Strategy", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Sales" },
-  { id: 10, name: "1.2. Qiddiya - Land Sales - Project Sales Strategy", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Sales" },
-  { id: 11, name: "2.1. Qiddiya - Land Sales - Partner Management - Strategy", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Sales" },
-  { id: 12, name: "2.2. Qiddiya - Land Sales - Partner Management - Onboarding", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Sales" },
-  { id: 13, name: "2.3. Qiddiya - Land Sales - Partner Management - Performance Management", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Sales" },
-  { id: 14, name: "3. Qiddiya - Land Sales - Lead to Deal including Governance", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Sales" },
-  { id: 15, name: "5. Qiddiya - Land Sales - Handover and Post Sales Administration", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Sales" },
-  { id: 16, name: "1.1. Qiddiya - Land Leasing - Annual Leasing Strategy", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Leasing" },
-  { id: 17, name: "1.2. Qiddiya - Land Leasing - Project Leasing Strategy", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Leasing" },
-  { id: 18, name: "2.1. Qiddiya - Land Leasing - Partner Management - Strategy", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Leasing" },
-  { id: 19, name: "2.2. Qiddiya - Land Leasing - Partner Management - Onboarding", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Leasing" },
-  { id: 20, name: "2.3. Qiddiya - Land Leasing - Partner Management - Performance Management", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Leasing" },
-  { id: 21, name: "3. Qiddiya - Land Leasing - Lead to Deal including Governance", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Leasing" },
-  { id: 22, name: "5. Qiddiya - Land Leasing - Handover and Post Leasing Administration", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Leasing" },
-  { id: 23, name: "6. Qiddiya - Land Leasing - Renewals", status: "Uplifted into latest template", owner: "Moustafa", meetingDate: "18 March 2026", stakeholders: 5, category: "Land Leasing" },
-];
+const SUPABASE_URL = 'https://oxxiinpdahgwwavudqoy.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_dTkw6AXUN84WbwCD7w_A8A_w5_CgcZ1';
+const DASHBOARD_PASSWORD = 'CDU2026';
 
-function statusClass(s) {
-  if (s.toLowerCase().includes('uplift')) return 'uplifted';
-  if (s.toLowerCase().includes('review')) return 'review';
-  if (s.toLowerCase().includes('pending')) return 'pending';
-  if (s.toLowerCase().includes('overdue')) return 'overdue';
-  return 'draft';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let documents = [];
+let activeFilter = 'all';
+let editingDocId = null;
+let editingField = null;
+
+// Auth
+function attemptLogin() {
+  const pw = document.getElementById('password-input').value;
+  if (pw === DASHBOARD_PASSWORD) {
+    document.getElementById('login-overlay').classList.add('hidden');
+    document.getElementById('main-dashboard').style.display = 'block';
+    loadDocuments();
+  } else {
+    document.getElementById('login-error').style.display = 'block';
+    document.getElementById('password-input').value = '';
+    document.getElementById('password-input').focus();
+  }
 }
 
+function logout() {
+  document.getElementById('login-overlay').classList.remove('hidden');
+  document.getElementById('main-dashboard').style.display = 'none';
+  document.getElementById('password-input').value = '';
+  document.getElementById('login-error').style.display = 'none';
+}
+
+// Data
+async function loadDocuments() {
+  const { data, error } = await db.from('documents').select('*').order('id');
+  if (error) { console.error(error); return; }
+  documents = data;
+  updateStats();
+  renderTable(activeFilter);
+  document.getElementById('footer-updated').textContent = 'Last loaded: ' + new Date().toLocaleString('en-AU', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+async function updateField(id, field, value) {
+  const { error } = await db.from('documents').update({ [field]: value }).eq('id', id);
+  if (error) { console.error(error); showToast('✕ Error saving — please try again', true); return; }
+  const doc = documents.find(d => d.id === id);
+  if (doc) doc[field] = value;
+  updateStats();
+  renderTable(activeFilter);
+  showToast('✓ Saved successfully');
+}
+
+// Stats
 function updateStats() {
   document.getElementById('stat-total').textContent = documents.length;
   document.getElementById('stat-uplifted').textContent = documents.filter(d => d.status.toLowerCase().includes('uplift')).length;
@@ -169,50 +288,108 @@ function updateStats() {
   document.getElementById('stat-land').textContent = documents.filter(d => d.category.startsWith('Land')).length;
 }
 
+// Table
+function statusClass(s) {
+  if (!s) return 'draft';
+  const sl = s.toLowerCase();
+  if (sl.includes('uplift')) return 'uplifted';
+  if (sl.includes('review')) return 'review';
+  if (sl.includes('pending')) return 'pending';
+  if (sl.includes('overdue')) return 'overdue';
+  if (sl.includes('approved')) return 'approved';
+  return 'draft';
+}
+
 function renderTable(filter) {
   const tbody = document.getElementById('doc-table');
   const filtered = (!filter || filter === 'all') ? documents : documents.filter(d => d.category === filter);
+  document.getElementById('doc-count').textContent = `Showing ${filtered.length} of ${documents.length} documents`;
   tbody.innerHTML = filtered.map((doc, i) => {
     const sc = statusClass(doc.status);
-    return `<tr onclick="openDetail(${doc.id})" style="animation-delay:${i*0.03}s">
+    const safeOwner = doc.owner.replace(/'/g, "\\'");
+    const safeDate = doc.meeting_date.replace(/'/g, "\\'");
+    return `<tr style="animation-delay:${i*0.025}s">
       <td><div class="doc-name">${doc.name}</div><div class="doc-category">${doc.category}</div></td>
-      <td><span class="status-pill ${sc}">${doc.status}</span></td>
-      <td><div class="owner-name">${doc.owner}</div></td>
-      <td><div class="meeting-date">${doc.meetingDate}</div></td>
-      <td><div class="stakeholder-count">${doc.stakeholders} consulted</div></td>
+      <td><div class="ref-number">${doc.ref}</div></td>
+      <td><span class="status-pill ${sc}" onclick="openStatusDropdown(event,${doc.id})">${doc.status}</span></td>
+      <td><div class="owner-name editable-cell" onclick="openInlineEditor(event,${doc.id},'owner','${safeOwner}','Owner')">${doc.owner}</div></td>
+      <td><div class="meeting-date editable-cell" onclick="openInlineEditor(event,${doc.id},'meeting_date','${safeDate}','Committee Date')">${doc.meeting_date}</div></td>
     </tr>`;
   }).join('');
 }
 
 function filterDocs(filter, btn) {
+  activeFilter = filter;
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  closeDetail();
+  closeAllEditors();
   renderTable(filter);
 }
 
-function openDetail(id) {
-  const doc = documents.find(d => d.id === id);
-  if (!doc) return;
-  document.getElementById('detail-title').textContent = doc.name;
-  document.getElementById('detail-info').innerHTML = `
-    <li><span>Category</span><span class="val">${doc.category}</span></li>
-    <li><span>Status</span><span class="val">${doc.status}</span></li>
-    <li><span>Owner</span><span class="val">${doc.owner}</span></li>
-    <li><span>Meeting Date</span><span class="val">${doc.meetingDate}</span></li>
-    <li><span>Stakeholders Consulted</span><span class="val">${doc.stakeholders}</span></li>
-  `;
-  const panel = document.getElementById('detail-panel');
-  panel.classList.add('open');
-  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+// Status dropdown
+function openStatusDropdown(e, docId) {
+  e.stopPropagation();
+  closeAllEditors();
+  editingDocId = docId;
+  const dd = document.getElementById('status-dropdown');
+  dd.classList.remove('hidden');
+  positionElement(dd, e.target, 240);
 }
 
-function closeDetail() {
-  document.getElementById('detail-panel').classList.remove('open');
+function selectStatus(value) {
+  if (editingDocId) updateField(editingDocId, 'status', value);
+  closeAllEditors();
 }
 
-updateStats();
-renderTable('all');
+// Inline editor
+function openInlineEditor(e, docId, field, currentValue, label) {
+  e.stopPropagation();
+  closeAllEditors();
+  editingDocId = docId;
+  editingField = field;
+  const editor = document.getElementById('inline-editor');
+  document.getElementById('editor-label').textContent = 'Edit ' + label;
+  document.getElementById('editor-input').value = currentValue;
+  editor.classList.remove('hidden');
+  positionElement(editor, e.target, 300);
+  setTimeout(() => document.getElementById('editor-input').focus(), 50);
+}
+
+function saveInlineEdit() {
+  const value = document.getElementById('editor-input').value.trim();
+  if (value && editingDocId && editingField) updateField(editingDocId, editingField, value);
+  closeInlineEditor();
+}
+
+function closeInlineEditor() {
+  document.getElementById('inline-editor').classList.add('hidden');
+  editingDocId = null; editingField = null;
+}
+
+function closeAllEditors() {
+  document.getElementById('status-dropdown').classList.add('hidden');
+  closeInlineEditor();
+}
+
+function positionElement(el, target, width) {
+  const rect = target.getBoundingClientRect();
+  let top = rect.bottom + window.scrollY + 4;
+  let left = rect.left + window.scrollX;
+  if (left + width > window.innerWidth - 10) left = window.innerWidth - width - 10;
+  el.style.top = top + 'px';
+  el.style.left = left + 'px';
+}
+
+// Toast
+function showToast(msg = '✓ Saved successfully', isError = false) {
+  const toast = document.getElementById('save-toast');
+  toast.textContent = msg;
+  toast.style.background = isError ? '#8b2635' : '#1e3a5f';
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+document.addEventListener('click', closeAllEditors);
 </script>
 </body>
 </html>
