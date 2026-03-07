@@ -284,22 +284,11 @@
       </div>
       <div class="modal-field">
         <label class="modal-label">Category</label>
-        <select class="modal-select" id="new-category">
-          <option value="Office Leasing">Office Leasing</option>
-          <option value="Land Sales">Land Sales</option>
-          <option value="Land Leasing">Land Leasing</option>
-        </select>
+        <input class="modal-input" id="new-category" type="text" placeholder="e.g. Office Leasing, Land Sales...">
       </div>
       <div class="modal-field">
         <label class="modal-label">Status</label>
-        <select class="modal-select" id="new-status">
-          <option value="Uplifted into latest template">Uplifted into latest template</option>
-          <option value="In Review">In Review</option>
-          <option value="Pending">Pending</option>
-          <option value="Approved">Approved</option>
-          <option value="Overdue">Overdue</option>
-          <option value="Draft">Draft</option>
-        </select>
+        <input class="modal-input" id="new-status" type="text" placeholder="e.g. In Review, Approved, Pending...">
       </div>
       <div class="modal-field">
         <label class="modal-label">Owner</label>
@@ -520,6 +509,8 @@ function openAddModal() {
   document.getElementById('new-ref').value = '';
   document.getElementById('new-owner').value = '';
   document.getElementById('new-date').value = '18 March 2026';
+  document.getElementById('new-category').value = '';
+  document.getElementById('new-status').value = '';
   document.getElementById('modal-error').style.display = 'none';
   document.getElementById('add-modal').classList.remove('hidden');
 }
