@@ -72,6 +72,7 @@
   .filter-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-secondary); padding: 6px 14px; font-family: 'Lato', sans-serif; font-size: 11px; font-weight: 700; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; transition: all 0.15s; }
   .filter-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--blue-bg); }
   .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .filter-btn.all-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
   .toolbar-right { display: flex; align-items: center; gap: 12px; }
   .doc-count { font-size: 11px; color: var(--muted); font-weight: 300; }
   .add-btn { background: var(--gold); color: #fff; border: none; padding: 8px 18px; font-family: 'Lato', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: background 0.15s; white-space: nowrap; }
@@ -210,10 +211,7 @@
   <div class="toolbar">
     <div class="filters">
       <span class="filter-label">Filter:</span>
-      <button class="filter-btn active" onclick="filterDocs('all', this)">All</button>
-      <button class="filter-btn" onclick="filterDocs('Office Leasing', this)">Office Leasing</button>
-      <button class="filter-btn" onclick="filterDocs('Land Sales', this)">Land Sales</button>
-      <button class="filter-btn" onclick="filterDocs('Land Leasing', this)">Land Leasing</button>
+      <div id="filter-buttons" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
     </div>
     <div class="toolbar-right">
       <div class="doc-count" id="doc-count"></div>
@@ -331,7 +329,7 @@ const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let documents = [];
-let activeFilter = 'all';
+let activeFilters = new Set();
 let editingDocId = null;
 let editingField = null;
 let deletingDocId = null;
@@ -363,7 +361,8 @@ async function loadDocuments() {
   if (error) { console.error(error); return; }
   documents = data;
   updateStats();
-  renderTable(activeFilter);
+  buildFilters();
+  renderTable();
   document.getElementById('footer-updated').textContent = 'Last loaded: ' + new Date().toLocaleString('en-AU', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
@@ -373,7 +372,8 @@ async function updateField(id, field, value) {
   const doc = documents.find(d => d.id === id);
   if (doc) doc[field] = value;
   updateStats();
-  renderTable(activeFilter);
+  buildFilters();
+  renderTable();
   showToast('✓ Saved successfully');
 }
 
@@ -394,7 +394,8 @@ async function saveNewDocument() {
   if (error) { showToast('✕ Error adding document', true); return; }
   documents.push(data[0]);
   updateStats();
-  renderTable(activeFilter);
+  buildFilters();
+  renderTable();
   closeAddModal();
   showToast('✓ Document added');
 }
@@ -405,7 +406,8 @@ async function confirmDelete() {
   if (error) { showToast('✕ Error deleting', true); closeConfirm(); return; }
   documents = documents.filter(d => d.id !== deletingDocId);
   updateStats();
-  renderTable(activeFilter);
+  buildFilters();
+  renderTable();
   closeConfirm();
   showToast('✓ Document deleted');
 }
@@ -430,9 +432,35 @@ function statusClass(s) {
   return 'draft';
 }
 
-function renderTable(filter) {
+function buildFilters() {
+  const categories = [...new Set(documents.map(d => d.category).filter(Boolean))].sort();
+  const container = document.getElementById('filter-buttons');
+  container.innerHTML =
+    `<button class="filter-btn all-btn ${activeFilters.size === 0 ? 'active' : ''}" onclick="clearFilters()">All</button>` +
+    categories.map(cat =>
+      `<button class="filter-btn ${activeFilters.has(cat) ? 'active' : ''}" onclick="toggleFilter('${cat.replace(/'/g, "\\'")}')">${cat}</button>`
+    ).join('');
+}
+
+function toggleFilter(category) {
+  if (activeFilters.has(category)) {
+    activeFilters.delete(category);
+  } else {
+    activeFilters.add(category);
+  }
+  buildFilters();
+  renderTable();
+}
+
+function clearFilters() {
+  activeFilters.clear();
+  buildFilters();
+  renderTable();
+}
+
+function renderTable() {
   const tbody = document.getElementById('doc-table');
-  const filtered = (!filter || filter === 'all') ? documents : documents.filter(d => d.category === filter);
+  const filtered = activeFilters.size === 0 ? documents : documents.filter(d => activeFilters.has(d.category));
   document.getElementById('doc-count').textContent = `Showing ${filtered.length} of ${documents.length} documents`;
   tbody.innerHTML = filtered.map((doc, i) => {
     const sc = statusClass(doc.status);
@@ -447,14 +475,6 @@ function renderTable(filter) {
       <td style="width:50px;text-align:center"><button class="delete-btn" onclick="openConfirm(event,${doc.id},'${e(doc.name)}')" title="Delete">✕</button></td>
     </tr>`;
   }).join('');
-}
-
-function filterDocs(filter, btn) {
-  activeFilter = filter;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  closeAllEditors();
-  renderTable(filter);
 }
 
 // Status dropdown
