@@ -124,7 +124,7 @@
   .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
   /* Inline Editor */
-  .inline-editor { position: fixed; background: var(--surface); border: 1px solid var(--accent); box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 500; padding: 16px; min-width: 300px; border-top: 3px solid var(--gold); }
+  .inline-editor { position: fixed; background: var(--surface); border: 1px solid var(--accent); box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 600; padding: 16px; min-width: 300px; border-top: 3px solid var(--gold); }
   .inline-editor.hidden { display: none; }
   .inline-editor-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 8px; }
   .inline-editor-input { width: 100%; padding: 8px 10px; border: 1px solid var(--border); font-family: 'Lato', sans-serif; font-size: 12px; color: var(--text); outline: none; margin-bottom: 10px; }
@@ -468,7 +468,7 @@ function renderTable() {
     return `<tr style="animation-delay:${i*0.025}s">
       <td><div class="doc-name editable-cell" onclick="openInlineEditor(event,${doc.id},'name','${e(doc.name)}','Document Name')">${doc.name}</div><div class="doc-category">${doc.category}</div></td>
       <td><div class="ref-number editable-cell" onclick="openInlineEditor(event,${doc.id},'ref','${e(doc.ref)}','Reference Number')">${doc.ref}</div></td>
-      <td><span class="status-pill ${sc}" onclick="openStatusDropdown(event,${doc.id})">${doc.status}</span></td>
+      <td><span class="status-pill ${sc} editable-cell" onclick="openInlineEditor(event,${doc.id},'status','${e(doc.status)}','Status')">${doc.status}</span></td>
       <td><div class="owner-name editable-cell" onclick="openInlineEditor(event,${doc.id},'owner','${e(doc.owner)}','Owner')">${doc.owner}</div></td>
       <td><div class="meeting-date editable-cell" onclick="openInlineEditor(event,${doc.id},'meeting_date','${e(doc.meeting_date)}','Committee Date')">${doc.meeting_date}</div></td>
       <td><div class="editable-cell" onclick="openInlineEditor(event,${doc.id},'category','${e(doc.category)}','Category')" style="font-size:12px;color:var(--text-secondary)">${doc.category}</div></td>
@@ -556,11 +556,23 @@ function closeConfirm() {
 // Helpers
 function positionElement(el, target, width) {
   const rect = target.getBoundingClientRect();
-  let top = rect.bottom + window.scrollY + 4;
-  let left = rect.left + window.scrollX;
+  // Use fixed positioning relative to viewport
+  el.style.position = 'fixed';
+  let left = rect.left;
   if (left + width > window.innerWidth - 10) left = window.innerWidth - width - 10;
-  el.style.top = top + 'px';
+  if (left < 10) left = 10;
   el.style.left = left + 'px';
+  // Try below first, flip above if too close to bottom
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const spaceAbove = rect.top;
+  if (spaceBelow < 180 && spaceAbove > spaceBelow) {
+    // Position above — anchor bottom of el to top of cell
+    el.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+    el.style.top = 'auto';
+  } else {
+    el.style.top = (rect.bottom + 4) + 'px';
+    el.style.bottom = 'auto';
+  }
 }
 
 function showToast(msg, isError = false) {
